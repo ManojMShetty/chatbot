@@ -1,0 +1,60 @@
+!pip install streamlit
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from tensorflow.keras.preprocessing.text import Tokenised
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout
+from sklearn.metrics import classification_report, confusion_matrix
+import nltk
+from nltk.corpus import stop words
+from nltk.stem import WordNetLemmatizer,PorterStemmer
+import re
+import pickle
+def load_data(filepath):columns = ['target', 'id', 'date', 'flag', 'user', 'text']data =
+pd.read_csv(filepath, encoding = "latin-1", names=columns)return data
+df = load_data("training.1600000.processed.noemoticon.csv")
+df.info()
+df['text'][5]
+df['text'][7]
+df['tweet']=df['text'].str.lower()
+df['tweet'][2]
+df['tweet'] = df['tweet'].apply(lambda x:re.sub(r'[^a-zA-Z\s]',"",x))
+df["tweet_tokens"]=df['tweet'].apply(lambda x:x.split())
+df["tweet_tokens"][7]
+lemma=WordNetLemmatizer()
+stop_words=set (stopwords.words('english'))
+stop_words
+df['tweet_refine'] = df['tweet_tokens'].apply(lambda x: [word for word in x if word not in
+stop_words])
+df['tweet_refine'][4254]
+stem=PorterStemmer()
+df['tweet_refine'] =df['tweet_refine'].apply(lambda x: [stem.stem(word)for word in x])
+x=df["tweet_refine"]y=df['target']
+tokenizer=Tokenizer(num_words=100000,oov_token="<OOV>")
+tokenizer.fit_on_texts(x)
+x_tokenized=tokenizer.texts_to_sequences(x)
+x_padded=pad_sequences(x_tokenized,maxlen=50)
+len(x_padded[534])
+def build_lstm_model(vocab_size, embedding_dim=100,
+max_len=50):model=Sequential([Embedding(vocab_size,embedding_dim,input_length=ma
+x_len),LSTM(128,return_sequences=True),LSTM(64),Dense
+(64,activation='relu'),Dropout(0.5),Dense(1,activation='sigmoid')])model.compile(optimizer='
+adam',loss='binary_crossentropy',metrics=['accuracy'])return model
+def
+train_model(model,X_train,y_train,X_val,y_val,epochs=5,batch_size=64):history=model.fit
+(X_train,y_train,epochs=epochs,batch_size=batch_size,validation_data=
+(X_val,y_val),verbose=1)return history
+!pip install scikit-learn
+from sklearn.model_selection import train_test_split
+X_train,X_test,y_train,y_test=train_test_split(x_padded,y,test_size=0.2,random_state=42)
+X_train,X_val,y_train,y_val=train_test_split(X_train,y_train,test_size=0.2,random_state=42
+)
+vocab_size=len(tokenizer.word_index)+1
+vocab_size
+model=build_lstm_model(vocab_size)
+history=train_model(model,X_train,y_train,X_val,y_val)
+model.save('sentiment_model.h5')with open('tokenizer.pickle', 'wb') as
+handle:pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
